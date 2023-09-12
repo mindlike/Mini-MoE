@@ -9,6 +9,21 @@ The simplest, fastest repository for training/finetuning medium-sized GPTs. It i
 
 Because the code is so simple, it is very easy to hack to your needs, train new models from scratch, or finetune pretrained checkpoints (e.g. biggest one currently available as a starting point would be the GPT-2 1.3B model from OpenAI).
 
+## Training Data
+
+The training data will consist of either DOLMA or openwebcrawl. OpenWebCrawl is 9B tokens. DOLMA is 3T tokens. It is probably infeasible to use the complete DOLMA training set, but it's worth taking a look and experimenting. The issue will probably stem from streaming issues.
+
+## Benchmarking
+
+Presumably we want to perform benchmarking on the MMLU code, that can be accessed on huggingface
+https://huggingface.co/datasets/cais/mmlu
+
+## TODO:
+- Add gating mechanisms. TopK, COMET, etc.
+- Add Mixture of Expert Feed Forward layers.
+- Modify the gpt code to be able to handle different feed forward layer types.
+
+
 ## install
 
 ```
