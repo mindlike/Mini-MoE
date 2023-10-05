@@ -179,6 +179,8 @@ class GPT(nn.Module):
         x = self.transformer.drop(tok_emb + pos_emb)
         for block in self.transformer.h:
             x = block(x)
+        
+        ## this is where we would place the MoE block, it would seem. 
         x = self.transformer.ln_f(x)
 
         if targets is not None:
