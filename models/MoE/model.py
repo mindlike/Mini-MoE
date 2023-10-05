@@ -15,6 +15,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from .Gates.stmoe import SparseMoEBlock, MoE
+
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
 
@@ -136,6 +138,18 @@ class GPT(nn.Module):
         # This behavior is deprecated and will be an error in future versions"
         # not 100% sure what this is, so far seems to be harmless. TODO investigate
         self.transformer.wte.weight = self.lm_head.weight # https://paperswithcode.com/method/weight-tying
+        self.moe = MoE(
+            dim = 128,
+            num_experts = 16,               # increase the experts (# parameters) of your model without increasing computation
+            gating_top_n = 2,               # default to top 2 gating, but can also be more (3 was tested in the paper with a lower threshold)
+            threshold_train = 0.2,          # at what threshold to accept a token to be routed to second expert and beyond - 0.2 was optimal for 2 expert routing, and apparently should be lower for 3
+            threshold_eval = 0.2,
+            capacity_factor_train = 1.25,   # experts have fixed capacity per batch. we need some extra capacity in case gating is not perfectly balanced.
+            capacity_factor_eval = 2.,      # capacity_factor_* should be set to a value >=1
+            balance_loss_coef = 1e-2,       # multiplier on the auxiliary expert balancing auxiliary loss
+            router_z_loss_coef = 1e-3,      # loss weight for router z-loss
+        )
+        self.moe_block = SparseMoEBlock(self.moe, add_ff_before=True, add_ff_after=True)
 
         # init all weights
         self.apply(self._init_weights)
@@ -181,12 +195,13 @@ class GPT(nn.Module):
             x = block(x)
         
         ## this is where we would place the MoE block, it would seem. 
-        x = self.transformer.ln_f(x)
-
+        
+        #x = self.transformer.ln_f(x)
+        x, aux_loss, _, _ = self.moe_block(x)
         if targets is not None:
             # if we are given some desired targets also calculate the loss
             logits = self.lm_head(x)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1) + aux_loss
         else:
             # inference-time mini-optimization: only forward the lm_head on the very last position
             logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
