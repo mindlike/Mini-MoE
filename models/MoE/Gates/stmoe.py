@@ -123,6 +123,7 @@ class GEGLU(Module):
 
     def forward(self, x):
         x, gate = x.chunk(2, dim = -1)
+        print((F.gelu(gate) * x * self.mult_bias).shape)
         return F.gelu(gate) * x * self.mult_bias
 
 class Expert(Module):
@@ -154,6 +155,10 @@ class Expert(Module):
             module.bias.data.uniform_(-std, std)
 
     def forward(self, x):
+        for p in self.net.parameters():
+            print(type(p))
+            print(p.numel())
+        print(":)))))")
         return self.net(x)
 
 class Experts(nn.Module):
@@ -591,7 +596,8 @@ class MoE(Module):
         )
 
         experts = default(experts, lambda: [Expert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts)])
-
+        print("HELLOOOOOOO")
+        print(Expert(dim = dim, hidden_mult = expert_hidden_mult))
         self.experts = Experts(
             experts,
             is_distributed = is_distributed,
