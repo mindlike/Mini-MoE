@@ -15,6 +15,9 @@ from colt5_attention import topk as maybe_differentiable_topk
 
 import torch.distributed as dist
 
+from ..FeedForwardZoo.MLPExpert import MLPExpert
+from ..FeedForwardZoo.SpikeExpert import SpikeExpert
+
 from .distributed import (
     AllGather,
     split_by_rank,
@@ -123,43 +126,7 @@ class GEGLU(Module):
 
     def forward(self, x):
         x, gate = x.chunk(2, dim = -1)
-        print((F.gelu(gate) * x * self.mult_bias).shape)
         return F.gelu(gate) * x * self.mult_bias
-
-class Expert(Module):
-    def __init__(
-        self,
-        dim,
-        hidden_mult = 4,
-        mult_bias = True,
-        prenorm = False
-    ):
-        super().__init__()
-        dim_hidden = int(dim * hidden_mult * 2 / 3)
-
-        self.net = Sequential(
-            RMSNorm(dim) if prenorm else None,
-            nn.Linear(dim, dim_hidden * 2),
-            GEGLU(dim_hidden, mult_bias = mult_bias),
-            nn.Linear(dim_hidden, dim)
-        )
-
-        self.apply(self.init_)
-
-    def init_(self, module):
-        if isinstance(module, nn.Linear):
-            dim = module.weight.shape[0]
-            std = dim ** -0.5
-
-            module.weight.data.uniform_(-std, std)
-            module.bias.data.uniform_(-std, std)
-
-    def forward(self, x):
-        for p in self.net.parameters():
-            print(type(p))
-            print(p.numel())
-        print(":)))))")
-        return self.net(x)
 
 class Experts(nn.Module):
     def __init__(
@@ -595,9 +562,10 @@ class MoE(Module):
             capacity_factor_eval = capacity_factor_eval
         )
 
-        experts = default(experts, lambda: [Expert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts)])
-        print("HELLOOOOOOO")
-        print(Expert(dim = dim, hidden_mult = expert_hidden_mult))
+        experts = default(experts, lambda: 
+                          [
+                              SpikeExpert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts)
+                        ])
         self.experts = Experts(
             experts,
             is_distributed = is_distributed,
@@ -622,7 +590,7 @@ class MoE(Module):
         # feed the expert inputs through the experts.
 
         expert_outputs = self.experts(expert_inputs)
-
+        print(expert_outputs.shape)
         # combine
 
         output = einsum('b e c d, b n e c -> b n d', expert_outputs, combine_tensor)
@@ -657,8 +625,8 @@ class SparseMoEBlock(Module):
         self.moe = moe
         self.moe_prenorm = RMSNorm(dim)
 
-        self.ff_before = Expert(dim, prenorm = True) if add_ff_before else None
-        self.ff_after = Expert(dim, prenorm = True) if add_ff_after else None
+        self.ff_before = MLPExpert(dim, prenorm = True) if add_ff_before else None
+        self.ff_after = MLPExpert(dim, prenorm = True) if add_ff_after else None
 
     def forward(
         self,
