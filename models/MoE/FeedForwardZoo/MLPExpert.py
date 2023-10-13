@@ -45,8 +45,6 @@ class MLPExpert(Module):
             module.bias.data.uniform_(-std, std)
 
     def forward(self, x):
-        print("LOOK AT ME")
-        print(x.shape)
         return self.net(x)
 
 class RMSNorm(Module):

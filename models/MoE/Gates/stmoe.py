@@ -564,7 +564,7 @@ class MoE(Module):
 
         experts = default(experts, lambda: 
                           [
-                              SpikeExpert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts)
+                              MLPExpert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts)
                         ])
         self.experts = Experts(
             experts,
@@ -590,7 +590,6 @@ class MoE(Module):
         # feed the expert inputs through the experts.
 
         expert_outputs = self.experts(expert_inputs)
-        print(expert_outputs.shape)
         # combine
 
         output = einsum('b e c d, b n e c -> b n d', expert_outputs, combine_tensor)
