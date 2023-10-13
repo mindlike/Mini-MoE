@@ -15,6 +15,7 @@ from colt5_attention import topk as maybe_differentiable_topk
 
 import torch.distributed as dist
 
+from ..FeedForwardZoo.DoubleMLPExpert import DoubleMLPExpert
 from ..FeedForwardZoo.MLPExpert import MLPExpert
 from ..FeedForwardZoo.SpikeExpert import SpikeExpert
 
@@ -563,9 +564,14 @@ class MoE(Module):
         )
 
         experts = default(experts, lambda: 
-                          [
-                              MLPExpert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts)
-                        ])
+                            [
+                              MLPExpert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts // 2)
+                            ]
+                            +
+                            [
+                              DoubleMLPExpert(dim = dim, hidden_mult = expert_hidden_mult) for _ in range(num_experts // 2)
+                            ]
+                            )
         self.experts = Experts(
             experts,
             is_distributed = is_distributed,
