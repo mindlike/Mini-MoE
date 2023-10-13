@@ -16,7 +16,7 @@ from colt5_attention import topk as maybe_differentiable_topk
 import torch.distributed as dist
 
 from ..FeedForwardZoo.MLPExpert import MLPExpert
-from ..FeedForwardZoo.SpikeExpert import SpikeExpert
+#from ..FeedForwardZoo.SpikeExpert import SpikeExpert
 
 from .distributed import (
     AllGather,
