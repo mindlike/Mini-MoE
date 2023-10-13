@@ -3,3 +3,4 @@ out-shakespeare-char/*
 .DS_Store
 **.cpython-38.pyc
 **.cpython-310.pyc
+.python-version
